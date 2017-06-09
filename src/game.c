@@ -213,6 +213,7 @@ void game_init(struct game_context* ctx)
     uvmap_planar_project(
         (vec2*) cbox.lmuvs,
         (vec3*) cbox.vertices,
+        cbox.num_vertices,
         (vec3*) cbox.normals,
         cbox.indices,
         cbox.num_indices);

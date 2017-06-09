@@ -34,6 +34,6 @@
 #include <stdlib.h>
 #include <linalgb.h>
 
-void uvmap_planar_project(vec2* uv, vec3* vertices, vec3* normals, unsigned int* indices, size_t num_indices);
+void uvmap_planar_project(vec2* uv, vec3* vertices, size_t num_vertices, vec3* normals, unsigned int* indices, size_t num_indices);
 
 #endif /* ! _UVMAP_H_ */
