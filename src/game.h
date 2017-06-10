@@ -39,10 +39,12 @@ struct game_context
     int* should_terminate;
     /* Mesh */
     struct {
-        unsigned int vao, vbo, nrm, col, ebo;
+        unsigned int vao, vbo, nrm, col, ebo, lm_uvs;
         unsigned int num_indices;
     } mesh;
     unsigned int shdr;
+    /* Misc state */
+    unsigned int rndr_mode;
 };
 
 /* Initializes the game instance */
