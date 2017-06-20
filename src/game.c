@@ -11,6 +11,8 @@
 #include "shader_util.h"
 #include "cornell_box.h"
 #include "uvmap.h"
+#include "glutil.h"
+#include "hemicube.h"
 
 #define WND_TITLE "TRad"
 #define WND_WIDTH 1280
@@ -321,6 +323,13 @@ void game_init(struct game_context* ctx)
 
     /* Load shader */
     ctx->shdr = shader_from_srcs(vs_src, 0, fs_src);
+
+    /* GLutils */
+    glutil_init();
+
+    /* Hemicube renderer */
+    ctx->hc_rndr = calloc(1, sizeof(struct hemicube_rndr));
+    hemicube_rndr_init(ctx->hc_rndr);
 }
 
 void game_update(void* userdata, float dt)
@@ -331,45 +340,15 @@ void game_update(void* userdata, float dt)
     window_update(ctx->wnd);
 }
 
-static void render_lightmap_preview(struct game_context* ctx)
+static void render_scene(struct game_context* ctx, mat4* view, mat4* proj)
 {
-    GLint default_vp[4] = {0};
-    glGetIntegerv(GL_VIEWPORT, default_vp);
-    glEnable(GL_SCISSOR_TEST);
-
-    GLint new_vp[4] = {10, 10, WND_WIDTH / 5.0f, WND_HEIGHT / 5.0f};
-    glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
-    glScissor(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
-
-    glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUniform1i(glGetUniformLocation(ctx->shdr, "lm_mode"), 1);
-    glBindVertexArray(ctx->mesh.vao);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->mesh.ebo);
-    glDrawElements(GL_TRIANGLES, ctx->mesh.num_indices, GL_UNSIGNED_INT, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glDisable(GL_SCISSOR_TEST);
-    glScissor(default_vp[0], default_vp[1], default_vp[2], default_vp[3]);
-    glViewport(default_vp[0], default_vp[1], default_vp[2], default_vp[3]);
-}
-
-void game_render(void* userdata, float interpolation)
-{
-    (void) interpolation;
-    struct game_context* ctx = userdata;
     glEnable(GL_DEPTH_TEST);
-
-    /* Render */
-    mat4 proj = mat4_perspective(radians(40.0), 0.1, 3000.0, (float)WND_WIDTH / WND_HEIGHT);
-    mat4 view = mat4_view_look_at(*(vec3*)cornell_box_cam_pos, *(vec3*)cornell_box_cam_to, *(vec3*)cornell_box_cam_up);
     mat4 model = mat4_id();
 
     GLuint shdr = ctx->shdr;
     glUseProgram(shdr);
-    glUniformMatrix4fv(glGetUniformLocation(shdr, "proj"), 1, GL_FALSE, proj.m);
-    glUniformMatrix4fv(glGetUniformLocation(shdr, "view"), 1, GL_FALSE, view.m);
+    glUniformMatrix4fv(glGetUniformLocation(shdr, "proj"), 1, GL_FALSE, proj->m);
+    glUniformMatrix4fv(glGetUniformLocation(shdr, "view"), 1, GL_FALSE, view->m);
     glUniformMatrix4fv(glGetUniformLocation(shdr, "model"), 1, GL_FALSE, model.m);
     glUniform3fv(glGetUniformLocation(shdr, "view_pos"), 1, cornell_box_cam_pos);
     vec3 light_pos = {{ .x = cornell_box_cam_pos[0],
@@ -386,9 +365,70 @@ void game_render(void* userdata, float interpolation)
     glDrawElements(GL_TRIANGLES, ctx->mesh.num_indices, GL_UNSIGNED_INT, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+}
+
+static inline void render_lightmap_preview(struct game_context* ctx)
+{
+    glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(ctx->shdr);
+    glUniform1i(glGetUniformLocation(ctx->shdr, "lm_mode"), 1);
+    glBindVertexArray(ctx->mesh.vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->mesh.ebo);
+    glDrawElements(GL_TRIANGLES, ctx->mesh.num_indices, GL_UNSIGNED_INT, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glUseProgram(0);
+}
+
+static inline void render_hemicube_preview(struct game_context* ctx)
+{
+    const float pos[3] = {278, 373, 450}, to[3] = {278, -200, 0};
+    vec3 normal = vec3_normalize(vec3_sub(*(vec3*)to, *(vec3*)pos));
+
+    /* Render hemicube to texture */
+    hemicube_render_begin(ctx->hc_rndr, pos, normal.rgb);
+    mat4 sview, sproj;
+    while (hemicube_render_next(ctx->hc_rndr, &sview, &sproj))
+        render_scene(ctx, &sview, &sproj);
+    hemicube_render_end(ctx->hc_rndr);
+
+    /* Preview texture */
+    render_texture(ctx->hc_rndr->col_tex);
+}
+
+void game_render(void* userdata, float interpolation)
+{
+    (void) interpolation;
+    struct game_context* ctx = userdata;
+
+    /* Scene render */
+    mat4 proj = mat4_perspective(radians(40.0), 0.1, 3000.0, (float)WND_WIDTH / WND_HEIGHT);
+    mat4 view = mat4_view_look_at(*(vec3*)cornell_box_cam_pos, *(vec3*)cornell_box_cam_to, *(vec3*)cornell_box_cam_up);
+    render_scene(ctx, &view, &proj);
+
+    /* Start rendering mini-previews */
+    GLint default_vp[4] = {0};
+    glGetIntegerv(GL_VIEWPORT, default_vp);
+    glEnable(GL_SCISSOR_TEST);
+    GLint w = WND_WIDTH / 5.0f, h = WND_HEIGHT / 5.0f;
+
+    /* Mini-preview of a hemicube render */
+    GLint new_vp[4] = {10, 20 + h, w, h};
+    glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
+    glScissor(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
+    render_hemicube_preview(ctx);
 
     /* Mini-preview of the lightmap */
+    memcpy(new_vp, &(GLint[4]){10, 10, w, h}, sizeof(new_vp));
+    glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
+    glScissor(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
     render_lightmap_preview(ctx);
+
+    /* End rendering mini-previews */
+    glDisable(GL_SCISSOR_TEST);
+    glScissor(default_vp[0], default_vp[1], default_vp[2], default_vp[3]);
+    glViewport(default_vp[0], default_vp[1], default_vp[2], default_vp[3]);
 
     /* Show rendered contents from the backbuffer */
     window_swap_buffers(ctx->wnd);
@@ -404,6 +444,9 @@ void game_perf_update(void* userdata, float msec, float fps)
 
 void game_shutdown(struct game_context* ctx)
 {
+    hemicube_rndr_destroy(ctx->hc_rndr);
+    free(ctx->hc_rndr);
+    glutil_deinit();
     /* Free mesh */
     free_cornell_box(&ctx->mesh.vao, &ctx->mesh.vbo, &ctx->mesh.ebo, &ctx->mesh.nrm, &ctx->mesh.col, &ctx->mesh.lm_uvs);
     memset(&ctx->mesh, 0, sizeof(ctx->mesh));

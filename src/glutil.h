@@ -28,36 +28,12 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _GAME_H_
-#define _GAME_H_
+#ifndef _GLUTIL_H_
+#define _GLUTIL_H_
 
-struct game_context
-{
-    /* Window assiciated with the game */
-    struct window* wnd;
-    /* Master run flag, indicates when the game should exit */
-    int* should_terminate;
-    /* Mesh */
-    struct {
-        unsigned int vao, vbo, nrm, col, ebo, lm_uvs;
-        unsigned int num_indices;
-    } mesh;
-    unsigned int shdr;
-    /* Hemicube renderer state */
-    struct hemicube_rndr* hc_rndr;
-    /* Misc state */
-    unsigned int rndr_mode;
-};
+void glutil_init();
+void glutil_deinit();
+void render_quad();
+void render_texture(unsigned int tex);
 
-/* Initializes the game instance */
-void game_init(struct game_context* ctx);
-/* Update callback used by the main loop */
-void game_update(void* userdata, float dt);
-/* Render callback used by the main loop */
-void game_render(void* userdata, float interpolation);
-/* Performance update callback used by the main loop */
-void game_perf_update(void* userdata, float msec, float fps);
-/* De-initializes the game instance */
-void game_shutdown(struct game_context* ctx);
-
-#endif /* ! _GAME_H_ */
+#endif /* ! _GLUTIL_H_ */

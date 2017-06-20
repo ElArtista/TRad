@@ -28,36 +28,40 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#ifndef _GAME_H_
-#define _GAME_H_
+#ifndef _HEMICUBE_H_
+#define _HEMICUBE_H_
 
-struct game_context
-{
-    /* Window assiciated with the game */
-    struct window* wnd;
-    /* Master run flag, indicates when the game should exit */
-    int* should_terminate;
-    /* Mesh */
-    struct {
-        unsigned int vao, vbo, nrm, col, ebo, lm_uvs;
-        unsigned int num_indices;
-    } mesh;
-    unsigned int shdr;
-    /* Hemicube renderer state */
-    struct hemicube_rndr* hc_rndr;
-    /* Misc state */
-    unsigned int rndr_mode;
+#include "linalgb.h"
+
+#define HEMICUBE_SRES 128
+
+enum hemicube_face {
+    HF_POSITIVE_X = 0,
+    HF_NEGATIVE_X,
+    HF_POSITIVE_Y,
+    HF_NEGATIVE_Y,
+    HF_NEGATIVE_Z,
+    HF_MAX
 };
 
-/* Initializes the game instance */
-void game_init(struct game_context* ctx);
-/* Update callback used by the main loop */
-void game_update(void* userdata, float dt);
-/* Render callback used by the main loop */
-void game_render(void* userdata, float interpolation);
-/* Performance update callback used by the main loop */
-void game_perf_update(void* userdata, float msec, float fps);
-/* De-initializes the game instance */
-void game_shutdown(struct game_context* ctx);
+struct hemicube_rndr {
+    unsigned int fbo;
+    unsigned int col_tex;
+    unsigned int depth_rb;
+    struct {
+        struct {
+            int vp[4];
+            int scissor_test;
+        } prev;
+        enum hemicube_face cur_face;
+        float pos[3], norm[3];
+    } run_st;
+};
 
-#endif /* ! _GAME_H_ */
+void hemicube_rndr_init(struct hemicube_rndr* hr);
+void hemicube_render_begin(struct hemicube_rndr* hr, const float pos[3], const float norm[3]);
+int hemicube_render_next(struct hemicube_rndr* hr, mat4* view, mat4* proj);
+void hemicube_render_end(struct hemicube_rndr* hr);
+void hemicube_rndr_destroy(struct hemicube_rndr* hr);
+
+#endif /* ! _HEMICUBE_H_ */
