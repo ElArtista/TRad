@@ -387,6 +387,7 @@ static inline void render_hemicube_preview(struct game_context* ctx)
     vec3 normal = vec3_normalize(vec3_sub(*(vec3*)to, *(vec3*)pos));
 
     /* Render hemicube to texture */
+    hemicube_rndr_clear(ctx->hc_rndr);
     hemicube_render_begin(ctx->hc_rndr, pos, normal.rgb);
     mat4 sview, sproj;
     while (hemicube_render_next(ctx->hc_rndr, &sview, &sproj))

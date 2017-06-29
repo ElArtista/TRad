@@ -62,6 +62,7 @@ void hemicube_rndr_init(struct hemicube_rndr* hr);
 void hemicube_render_begin(struct hemicube_rndr* hr, const float pos[3], const float norm[3]);
 int hemicube_render_next(struct hemicube_rndr* hr, mat4* view, mat4* proj);
 void hemicube_render_end(struct hemicube_rndr* hr);
+void hemicube_rndr_clear(struct hemicube_rndr* hr);
 void hemicube_rndr_destroy(struct hemicube_rndr* hr);
 
 #endif /* ! _HEMICUBE_H_ */

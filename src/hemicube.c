@@ -66,9 +66,6 @@ void hemicube_render_begin(struct hemicube_rndr* hr, const float pos[3], const f
     hr->run_st.prev.scissor_test = glIsEnabled(GL_SCISSOR_TEST);
     glGetIntegerv(GL_VIEWPORT, (GLint*)hr->run_st.prev.vp);
     glBindFramebuffer(GL_FRAMEBUFFER, hr->fbo);
-    glDisable(GL_SCISSOR_TEST);
-    glClearColor(0.05f, 0.05f, 0.05f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_SCISSOR_TEST);
 }
 
@@ -111,6 +108,18 @@ void hemicube_render_end(struct hemicube_rndr* hr)
     glScissor(vp[0], vp[1], vp[2], vp[3]);
     if (hr->run_st.prev.scissor_test == GL_FALSE)
         glDisable(GL_SCISSOR_TEST);
+}
+
+void hemicube_rndr_clear(struct hemicube_rndr* hr)
+{
+    GLint sc_test = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, hr->fbo);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (sc_test)
+        glEnable(GL_SCISSOR_TEST);
 }
 
 void hemicube_rndr_destroy(struct hemicube_rndr* hr)
