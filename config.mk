@@ -5,4 +5,4 @@ ifeq ($(TARGET_OS), Windows_NT)
 else
 	LIBS += GL GLU X11 Xrandr Xinerama Xcursor pthread dl
 endif
-EXTDEPS = gfxwnd::0.0.0dev macu::0.0.2dev
+EXTDEPS = gfxwnd::0.0.1dev macu::0.0.2dev
