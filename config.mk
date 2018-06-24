@@ -1,6 +1,6 @@
 PRJTYPE = Executable
 LIBS = gfxwnd glfw glad macu
-ifeq ($(TARGET_OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows)
 	LIBS += glu32 opengl32 gdi32 winmm ole32 user32 shell32
 else
 	LIBS += GL GLU X11 Xrandr Xinerama Xcursor pthread dl
