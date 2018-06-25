@@ -45,17 +45,16 @@ int main(int argc, char* argv[])
     /* Setup mainloop parameters */
     struct mainloop_data mld;
     memset(&mld, 0, sizeof(struct mainloop_data));
-    mld.max_frameskip = 5;
     mld.updates_per_second = 60;
     mld.update_callback = game_update;
     mld.render_callback = game_render;
-    mld.perf.callback   = game_perf_update;
+    mld.perf_callback   = game_perf_update;
+    mld.perf_refr_rate  = 0.5;
     mld.userdata = &ctx;
     ctx.should_terminate = &mld.should_terminate;
 
     /* Run mainloop */
-    //mainloop(&mld);
-    mainloop_const(&mld);
+    mainloop(&mld);
 
     /* De-initialize */
     game_shutdown(&ctx);
