@@ -8,6 +8,7 @@
 #include <glad/glad.h>
 #include <gfxwnd/window.h>
 #include <linalgb.h>
+#include "opengl.h"
 #include "shader_util.h"
 #include "cornell_box.h"
 #include "uvmap.h"
@@ -126,20 +127,6 @@ void main()
     }
 }
 );
-
-static void APIENTRY gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
-{
-    (void) source;
-    (void) id;
-    (void) severity;
-    (void) length;
-    (void) user_param;
-
-    if (type == GL_DEBUG_TYPE_ERROR) {
-        fprintf(stderr, "%s\n", message);
-        assert(0);
-    }
-}
 
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
@@ -261,6 +248,14 @@ static void free_upacked_cornell_box(struct cornell_box* cbox)
     free(cbox->indices);
 }
 
+static void opengl_err_cb(void* ud, const char* msg)
+{
+    struct game_context* ctx = ud;
+    (void)ctx;
+    fprintf(stderr, "%s\n", msg);
+    assert(0);
+}
+
 void game_init(struct game_context* ctx)
 {
     /* Create window */
@@ -278,7 +273,7 @@ void game_init(struct game_context* ctx)
     window_set_callbacks(ctx->wnd, &wnd_callbacks);
 
     /* Setup OpenGL debug handler */
-    glDebugMessageCallback(gl_debug_proc, ctx);
+    opengl_register_error_handler(opengl_err_cb, ctx);
 
     /* Bundle cornell box data */
     struct cornell_box cbox_packed;
