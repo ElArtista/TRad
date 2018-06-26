@@ -80,7 +80,9 @@ void render_quad()
 
 static void texture_render_init()
 {
-    st.tex_shdr = shader_from_srcs(rndr_tex_vs_src, 0, rndr_tex_fs_src);
+    st.tex_shdr = shader_build((struct shader_attachment[]){
+        {GL_VERTEX_SHADER,   rndr_tex_vs_src},
+        {GL_FRAGMENT_SHADER, rndr_tex_fs_src}}, 2);
 }
 
 static void texture_render_destroy()

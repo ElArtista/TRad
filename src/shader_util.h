@@ -31,8 +31,24 @@
 #ifndef _SHADER_UTIL_H_
 #define _SHADER_UTIL_H_
 
+#include <stdlib.h>
+
 /* Convenience macro */
 #define GLSRC(src) "#version 330 core\n" #src
-unsigned int shader_from_srcs(const char* vs_src, const char* gs_src, const char* fs_src);
+
+struct shader_attachment {
+    int type;
+    const char* src;
+};
+
+struct shader_files {
+    const char* vs_loc;
+    const char* gs_loc;
+    const char* fs_loc;
+    const char* cs_loc;
+};
+
+unsigned int shader_build(struct shader_attachment* attachments, size_t num_attachments);
+unsigned int shader_load(struct shader_files* sf);
 
 #endif /* ! _SHADER_UTIL_H_ */

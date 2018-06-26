@@ -322,7 +322,9 @@ void game_init(struct game_context* ctx)
     free_upacked_cornell_box(&cbox_unpacked);
 
     /* Load shader */
-    ctx->shdr = shader_from_srcs(vs_src, 0, fs_src);
+    ctx->shdr = shader_build((struct shader_attachment[]){
+        {GL_VERTEX_SHADER,   vs_src},
+        {GL_FRAGMENT_SHADER, fs_src}}, 2);
 
     /* GLutils */
     glutil_init();
