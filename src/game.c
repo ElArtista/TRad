@@ -19,115 +19,6 @@
 #define WND_WIDTH 1280
 #define WND_HEIGHT 720
 
-static const char* vs_src = GLSRC(
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 normal;
-layout (location = 2) in vec3 color;
-layout (location = 3) in vec2 lm_uv;
-
-out VS_OUT {
-    vec3 ws_pos;
-    vec3 normal;
-    vec3 color;
-    vec2 lmuv;
-} vs_out;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 proj;
-uniform bool lm_mode;
-
-void main()
-{
-    vs_out.ws_pos = (model * vec4(position, 1.0)).xyz;
-    vs_out.normal = normal;
-    vs_out.color = color;
-    vs_out.lmuv = lm_uv;
-    if (!lm_mode)
-        gl_Position = proj * view * model * vec4(position, 1.0);
-    else
-        gl_Position = vec4(vs_out.lmuv * 2 - 1, 0.0, 1.0);
-}
-);
-
-static const char* fs_src = GLSRC(
-out vec4 frag_color;
-
-in VS_OUT {
-    vec3 ws_pos;
-    vec3 normal;
-    vec3 color;
-    vec2 lmuv;
-} fs_in;
-
-uniform vec3 view_pos;
-uniform vec3 light_pos;
-uniform int mode;
-
-vec3 radiance(vec3 N, vec3 ws_pos, vec3 albedo)
-{
-    vec3 light_dir = normalize(light_pos - ws_pos);
-    vec3 light_col = vec3(1.0, 1.0, 1.0);
-
-    float distance = length(light_pos - ws_pos);
-#ifdef PBR_PLIGHT
-    float light_intensity = 30000;
-    float attenuation = 1.0 / (distance * distance);
-#else
-    float light_intensity = 1000;
-    float light_constant = 1.0;
-    float light_linear = 0.09;
-    float light_quadratic = 0.032;
-    float attenuation = 1.0 / (1.0 + (light_linear * distance) + (light_quadratic * distance * distance));
-#endif
-    vec3 V = normalize(view_pos - ws_pos);
-    vec3 R = reflect(-light_dir, N);
-
-    float kD = max(dot(N, light_dir), 0.0);
-    float kS = pow(max(dot(V, R), 0.0), 32);
-
-    vec3 Lo = (kD + kS) * attenuation * light_col * light_intensity * albedo;
-    return Lo;
-}
-
-vec3 postprocess(vec3 color)
-{
-    // HDR tonemapping
-    color = color / (color + vec3(1.0));
-    // Gamma correct
-    color = pow(color, vec3(1.0 / 2.2));
-    return color;
-}
-
-vec3 lmuv_dbg(vec2 lmuv)
-{
-    vec2 sz = vec2(128.0); // Virtual texture size
-    vec2 st = fs_in.lmuv;
-    float m = mod(floor(st.x * sz.x) + floor(st.y * sz.y), 2.0);
-    vec3 col = m < 1.0 ? vec3(0.0) : vec3(1.0);
-    return col;
-}
-
-void main()
-{
-    vec3 N = normalize((fs_in.normal));
-    vec3 Lo = radiance(N, fs_in.ws_pos, fs_in.color);
-    // Final color
-    vec3 color = Lo;
-#ifdef POSTPROCESSING
-    color = postprocess(color);
-#endif
-
-    if (mode == 1) {
-        // Visualize lightmap UVs
-        frag_color = vec4(lmuv_dbg(fs_in.lmuv), 1.0);
-    } else {
-        // Normal shading
-        frag_color = vec4(color, 1.0);
-    }
-}
-);
-
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
     (void)scancode; (void)mods;
@@ -317,9 +208,9 @@ void game_init(struct game_context* ctx)
     free_upacked_cornell_box(&cbox_unpacked);
 
     /* Load shader */
-    ctx->shdr = shader_build((struct shader_attachment[]){
-        {GL_VERTEX_SHADER,   vs_src},
-        {GL_FRAGMENT_SHADER, fs_src}}, 2);
+    ctx->shdr = shader_load(&(struct shader_files){
+        .vs_loc = "res/shaders/standard.vert",
+        .fs_loc = "res/shaders/standard.frag"});
 
     /* GLutils */
     glutil_init();
