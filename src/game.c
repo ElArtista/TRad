@@ -300,19 +300,24 @@ void game_render(void* userdata, float interpolation)
     GLint default_vp[4] = {0};
     glGetIntegerv(GL_VIEWPORT, default_vp);
     glEnable(GL_SCISSOR_TEST);
-    GLint w = WND_WIDTH / 5.0f, h = WND_HEIGHT / 5.0f;
+    GLint prv_w = WND_WIDTH / 5.0f, prv_h = WND_HEIGHT / 5.0f;
 
-    /* Mini-preview of a hemicube render */
-    GLint new_vp[4] = {10, 20 + h, w, h};
-    glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
-    glScissor(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
-    render_hemicube_preview(ctx);
-
-    /* Mini-preview of the lightmap */
-    memcpy(new_vp, &(GLint[4]){10, 10, w, h}, sizeof(new_vp));
-    glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
-    glScissor(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
-    render_lightmap_preview(ctx);
+    /* Render mini-previews */
+    for (size_t preview_idx = 0; preview_idx < 2; ++preview_idx) {
+        /* Preview viewport setup */
+        GLint new_vp[4] = {10, 10 + (10 + prv_h) * preview_idx, prv_w, prv_h};
+        glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
+        glScissor(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
+        /* Preview render */
+        switch(preview_idx) {
+            case 0:
+                render_lightmap_preview(ctx);
+                break;
+            case 1:
+                render_hemicube_preview(ctx);
+                break;
+        }
+    }
 
     /* End rendering mini-previews */
     glDisable(GL_SCISSOR_TEST);
