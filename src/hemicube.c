@@ -73,7 +73,7 @@ static void calc_vp_face_matrices(mat4* view, mat4* proj, enum hemicube_face fac
 {
     vec3 ffront, fup, fright;
     ffront = norm;
-    fright = vec3_new(1, 0, 0);
+    fright = vec3_new(norm.z <= 0.0 ? 1 : -1, 0, 0);
     fup    = vec3_cross(fright, ffront);
     fright = vec3_cross(ffront, fup);
 
