@@ -17,17 +17,10 @@ vec3 radiance(vec3 N, vec3 ws_pos, vec3 albedo)
     vec3 light_dir = normalize(light_pos - ws_pos);
     vec3 light_col = vec3(1.0, 1.0, 1.0);
 
-    float distance = length(light_pos - ws_pos);
-#ifdef PBR_PLIGHT
+    float dist = length(light_pos - ws_pos);
     float light_intensity = 30000;
-    float attenuation = 1.0 / (distance * distance);
-#else
-    float light_intensity = 1000;
-    float light_constant = 1.0;
-    float light_linear = 0.09;
-    float light_quadratic = 0.032;
-    float attenuation = 1.0 / (1.0 + (light_linear * distance) + (light_quadratic * distance * distance));
-#endif
+    float attenuation = 1.0 / (dist * dist);
+
     vec3 V = normalize(view_pos - ws_pos);
     vec3 R = reflect(-light_dir, N);
 
