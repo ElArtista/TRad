@@ -1,7 +1,6 @@
 #include "uvmap.h"
 #include <stdio.h>
 #include <math.h>
-#include <vector.h>
 
 struct quadrilateral {
     vec2 size;
@@ -14,12 +13,12 @@ struct node {
     int occupied;
 };
 
-static struct node* node_insert(struct node* n, struct quadrilateral* q)
+static struct node* node_insert(struct node* n, struct quadrilateral* q, vec2 padding)
 {
     /* If the node has no children, try to recursively insert into them */
     if (n->childs[0] && n->childs[1]) {
-        struct node* c = node_insert(n->childs[0], q);
-        return c ? c : node_insert(n->childs[1], q);
+        struct node* c = node_insert(n->childs[0], q, padding);
+        return c ? c : node_insert(n->childs[1], q, padding);
     } else {
         /* Can this rectangle be packed into this node? */
         if (n->occupied || q->size.x > n->rect.width || q->size.y > n->rect.height) {
@@ -28,7 +27,7 @@ static struct node* node_insert(struct node* n, struct quadrilateral* q)
         /* Does this rectangle have exactly the same size as this node? */
         if (q->size.x == n->rect.width && q->size.y == n->rect.height) {
             n->occupied = 1;
-            vec2 offset = vec2_new(n->rect.x, n->rect.y);
+            vec2 offset = vec2_new(n->rect.x + padding.x / 2, n->rect.y + padding.y / 2);
             for (unsigned int i = 0; i < 3; ++i)
                 *(q->tp[i]) = vec2_add(*(q->tp[i]), offset);
             return n;
@@ -51,7 +50,7 @@ static struct node* node_insert(struct node* n, struct quadrilateral* q)
             n->childs[1]->rect = (struct nrect){n->rect.x, n->rect.y + q->size.y, n->rect.width, n->rect.height - q->size.y};
         }
 
-        return node_insert(n->childs[0], q);
+        return node_insert(n->childs[0], q, padding);
     }
 }
 
@@ -79,14 +78,14 @@ static int quad_cmp(const void* a, const void* b)
     return 0;
 }
 
-void uvmap_planar_project(vec2* uv, vec3* vertices, size_t num_vertices, vec3* normals, unsigned int* indices, size_t num_indices)
+void uvmap_planar_project(vec2* uv, vec3* vertices, vec3* normals, size_t num_vertices, unsigned int* indices, size_t num_indices, unsigned int width, unsigned int height, unsigned int padding)
 {
-    struct vector quads;
-    vector_init(&quads, sizeof(struct quadrilateral));
+    size_t num_quads = num_indices / 3;
+    struct quadrilateral* quads = calloc(num_quads, sizeof(*quads));
 
     for (size_t i = 0; i < num_indices; i += 3) {
         unsigned int ind = indices[i];
-        vec3 nm = vec3_abs(*(normals + ind));
+        vec3 nm = vec3_abs(normals[ind]);
         if (nm.x > nm.y && nm.x > nm.z) {
             /* Project to plane X */
             for (unsigned int j = 0; j < 3; ++j) {
@@ -126,38 +125,41 @@ void uvmap_planar_project(vec2* uv, vec3* vertices, size_t num_vertices, vec3* n
         q.size = vec2_sub(uvmax, uvmin);
         for (unsigned int j = 0; j < 3; ++j)
             q.tp[j] = uv + (ind + j);
-        vector_append(&quads, &q);
+        quads[i / 3] = q;
     }
 
     /* Compute area max */
     float scale = 0.0f;
-    for (unsigned int i = 0; i < quads.size; ++i) {
-        struct quadrilateral* q = ((struct quadrilateral*)vector_at(&quads, i));
+    for (unsigned int i = 0; i < num_quads; ++i) {
+        struct quadrilateral* q = &quads[i];
         scale += q->size.x * q->size.y;
     }
     scale = sqrt(scale) * 1.35;
 
+    /* Padding between quads */
+    vec2 pad = vec2_new((float)padding / width, (float)padding / height);
+
     /* Normalize to fit to texture */
-    for (unsigned int i = 0; i < quads.size; ++i) {
-        struct quadrilateral* q = ((struct quadrilateral*)vector_at(&quads, i));
-        q->size = vec2_div(q->size, scale);
+    for (unsigned int i = 0; i < num_quads; ++i) {
+        struct quadrilateral* q = &quads[i];
+        q->size = vec2_add(vec2_div(q->size, scale), pad);
     }
     for (unsigned int i = 0; i < num_vertices; ++i)
         uv[i] = vec2_div(uv[i], scale);
 
     /* Sort by area */
-    qsort(quads.data, quads.size, quads.item_sz, quad_cmp);
+    qsort(quads, num_quads, sizeof(*quads), quad_cmp);
 
     /* Recursive packing */
     struct node* root = calloc(1, sizeof(struct node));
-    root->rect = (struct nrect){ 0.f, 0.f, 1.f, 1.f };
-    for (size_t i = 0; i < quads.size; ++i) {
-        struct quadrilateral* q = ((struct quadrilateral*)vector_at(&quads, i));
-        if (!node_insert(root, q)) {
+    root->rect = (struct nrect){ pad.x / 2.0, pad.y / 2.0, 1.0 - pad.x / 2.0, 1.0 - pad.y / 2.0 };
+    for (size_t i = 0; i < num_quads; ++i) {
+        struct quadrilateral* q = &quads[i];
+        if (!node_insert(root, q, pad)) {
             printf("Error! UV Map problem: [%lu](%f, %f)\n", i, q->size.x, q->size.y);
         }
     }
 
     node_free(root);
-    vector_destroy(&quads);
+    free(quads);
 }

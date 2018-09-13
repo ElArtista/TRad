@@ -18,6 +18,7 @@
 #define WND_TITLE "TRad"
 #define WND_WIDTH 1280
 #define WND_HEIGHT 720
+#define LIGHTMAP_SIZE 128
 
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
 {
@@ -188,10 +189,11 @@ void game_init(struct game_context* ctx)
     uvmap_planar_project(
         (vec2*) cbox.lmuvs,
         (vec3*) cbox.vertices,
-        cbox.num_vertices,
         (vec3*) cbox.normals,
+        cbox.num_vertices,
         cbox.indices,
-        cbox.num_indices);
+        cbox.num_indices,
+        LIGHTMAP_SIZE, LIGHTMAP_SIZE, 2);
 
     /* Load model */
     load_cornell_box(
