@@ -47,13 +47,17 @@ vec3 postprocess(vec3 color)
     return color;
 }
 
+float rand(vec2 co)
+{
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
 vec3 lmuv_dbg(vec2 lmuv)
 {
     vec2 sz = vec2(128.0); // Virtual texture size
     vec2 st = fs_in.lmuv;
-    float m = mod(floor(st.x * sz.x) + floor(st.y * sz.y), 2.0);
-    vec3 col = m < 1.0 ? vec3(0.0) : vec3(1.0);
-    return col;
+    float r = rand(vec2(floor(st.x * sz.x), floor(st.y * sz.y)));
+    return vec3(r);
 }
 
 void main()
