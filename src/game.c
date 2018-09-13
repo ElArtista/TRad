@@ -14,21 +14,12 @@
 #include "uvmap.h"
 #include "glutil.h"
 #include "hemicube.h"
+#include "radiosity.h"
 
 #define WND_TITLE "TRad"
 #define WND_WIDTH 1280
 #define WND_HEIGHT 720
 #define LIGHTMAP_SIZE 128
-
-static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
-{
-    (void)scancode; (void)mods;
-    struct game_context* ctx = window_get_userdata(wnd);
-    if (action == 0 && key == KEY_ESCAPE)
-        *(ctx->should_terminate) = 1;
-    if (action == KEY_ACTION_RELEASE && key == KEY_SPACE)
-        ctx->rndr_mode = !ctx->rndr_mode;
-}
 
 struct cornell_box {
     float* vertices;
@@ -148,6 +139,16 @@ static void opengl_err_cb(void* ud, const char* msg)
     assert(0);
 }
 
+static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
+{
+    (void)scancode; (void)mods;
+    struct game_context* ctx = window_get_userdata(wnd);
+    if (action == 0 && key == KEY_ESCAPE)
+        *(ctx->should_terminate) = 1;
+    if (action == KEY_ACTION_RELEASE && key == KEY_SPACE)
+        ctx->rndr_mode = ctx->rndr_mode < 2 ? ctx->rndr_mode + 1 : 0;
+}
+
 void game_init(struct game_context* ctx)
 {
     /* Create window */
@@ -220,6 +221,10 @@ void game_init(struct game_context* ctx)
     /* Hemicube renderer */
     ctx->hc_rndr = calloc(1, sizeof(struct hemicube_rndr));
     hemicube_rndr_init(ctx->hc_rndr);
+
+    /* Radiosity renderer */
+    const int lightmap_res = LIGHTMAP_SIZE;
+    radiosity_init(lightmap_res, lightmap_res);
 }
 
 void game_update(void* userdata, float dt)
@@ -241,12 +246,13 @@ static void render_scene(struct game_context* ctx, mat4* view, mat4* proj)
     glUniformMatrix4fv(glGetUniformLocation(shdr, "view"), 1, GL_FALSE, view->m);
     glUniformMatrix4fv(glGetUniformLocation(shdr, "model"), 1, GL_FALSE, model.m);
     glUniform3fv(glGetUniformLocation(shdr, "view_pos"), 1, cornell_box_cam_pos);
-    vec3 light_pos = {{ .x = cornell_box_cam_pos[0],
-                        .y = cornell_box_cam_pos[1],
-                        .z = cornell_box_cam_pos[2] * (-0.5)}};
+    vec3 light_pos = {{ .x = 278, .y = 450, .z = 279.5}};
     glUniform3fv(glGetUniformLocation(shdr, "light_pos"), 1, light_pos.xyz);
     glUniform1i(glGetUniformLocation(ctx->shdr, "mode"), ctx->rndr_mode);
     glUniform1i(glGetUniformLocation(ctx->shdr, "lm_mode"), 0);
+    glUniform1i(glGetUniformLocation(ctx->shdr, "lightmap"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, radiosity_lightmap());
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -298,6 +304,21 @@ void game_render(void* userdata, float interpolation)
     mat4 view = mat4_view_look_at(*(vec3*)cornell_box_cam_pos, *(vec3*)cornell_box_cam_to, *(vec3*)cornell_box_cam_up);
     render_scene(ctx, &view, &proj);
 
+    /* Attribute buffer for radiosity */
+    radiosity_attrib_pass {
+        glBindVertexArray(ctx->mesh.vao);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->mesh.ebo);
+        glDrawElements(GL_TRIANGLES, ctx->mesh.num_indices, GL_UNSIGNED_INT, 0);
+    }
+
+    /* Progress solution */
+    for (int i = 0; i < 100; ++i)
+    radiosity_gi_pass {
+        glBindVertexArray(ctx->mesh.vao);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->mesh.ebo);
+        glDrawElements(GL_TRIANGLES, ctx->mesh.num_indices, GL_UNSIGNED_INT, 0);
+    };
+
     /* Start rendering mini-previews */
     GLint default_vp[4] = {0};
     glGetIntegerv(GL_VIEWPORT, default_vp);
@@ -305,7 +326,7 @@ void game_render(void* userdata, float interpolation)
     GLint prv_w = WND_WIDTH / 5.0f, prv_h = WND_HEIGHT / 5.0f;
 
     /* Render mini-previews */
-    for (size_t preview_idx = 0; preview_idx < 2; ++preview_idx) {
+    for (size_t preview_idx = 0; preview_idx < 4; ++preview_idx) {
         /* Preview viewport setup */
         GLint new_vp[4] = {10, 10 + (10 + prv_h) * preview_idx, prv_w, prv_h};
         glViewport(new_vp[0], new_vp[1], new_vp[2], new_vp[3]);
@@ -317,6 +338,13 @@ void game_render(void* userdata, float interpolation)
                 break;
             case 1:
                 render_hemicube_preview(ctx);
+                break;
+            case 2:
+                render_texture(radiosity_lightmap());
+                break;
+            case 3:
+                render_texture(radiosity_unshot());
+                //render_texture(radiosity_visibility());
                 break;
         }
     }
@@ -340,6 +368,7 @@ void game_perf_update(void* userdata, float msec, float fps)
 
 void game_shutdown(struct game_context* ctx)
 {
+    radiosity_destroy();
     hemicube_rndr_destroy(ctx->hc_rndr);
     free(ctx->hc_rndr);
     glutil_deinit();

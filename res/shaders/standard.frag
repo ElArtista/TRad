@@ -11,6 +11,7 @@ in VS_OUT {
 uniform vec3 view_pos;
 uniform vec3 light_pos;
 uniform int mode;
+uniform sampler2D lightmap;
 
 vec3 radiance(vec3 N, vec3 ws_pos, vec3 albedo)
 {
@@ -66,6 +67,9 @@ void main()
     if (mode == 1) {
         // Visualize lightmap UVs
         frag_color = vec4(lmuv_dbg(fs_in.lmuv), 1.0);
+    } else if (mode == 2) {
+        // Lightmap shading
+        frag_color = vec4(texture(lightmap, fs_in.lmuv).rgb, 1.0);
     } else {
         // Normal shading
         frag_color = vec4(color, 1.0);

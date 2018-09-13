@@ -1,0 +1,71 @@
+#version 430 core
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(rgba16f, binding = 0) uniform image2D unshot;
+
+layout(binding = 0) uniform sampler2D position;
+layout(binding = 1) uniform sampler2D normal;
+uniform int pass;
+
+//#define NUM_WORK_GROUPS (gl_NumWorkGroups.x * gl_NumWorkGroups.y)
+#define NUM_WORK_GROUPS (8 * 8)
+
+layout(std430, binding = 0) buffer group_max_buf {
+    ivec2 group_max_coord[NUM_WORK_GROUPS];
+    float group_max_lum[NUM_WORK_GROUPS];
+};
+
+layout(std430, binding = 1) buffer shooter_info_buf {
+    ivec2 shooter_coords;
+    vec3 shooter_position;
+    vec3 shooter_normal;
+    vec4 shooter_unshot;
+};
+
+shared float group_luminances[gl_WorkGroupSize.x * gl_WorkGroupSize.y];
+
+void main()
+{
+    if (pass == 0) {
+        ivec2 st = ivec2(gl_GlobalInvocationID.xy);
+        vec4 val = imageLoad(unshot, st);
+        float lm = dot(val.rgb, vec3(0.2125, 0.7154, 0.0721));
+        group_luminances[gl_LocalInvocationIndex] = lm;
+
+        memoryBarrierShared();
+        barrier();
+
+        ivec2 brightest_texel_coord = ivec2(0,0);
+        if (gl_LocalInvocationIndex == 0) {
+            uint max_idx = 0;
+            float max_lum = group_luminances[0];
+            for (uint i = 1; i < gl_WorkGroupSize.x * gl_WorkGroupSize.y; ++i) {
+                float lum = group_luminances[i];
+                if (lum > max_lum) {
+                    max_idx = i;
+                    max_lum = lum;
+                }
+            }
+            brightest_texel_coord = ivec2(gl_WorkGroupSize.xy * gl_WorkGroupID.xy)
+                                  + ivec2(max_idx % gl_WorkGroupSize.x, max_idx / gl_WorkGroupSize.x);
+            uint group_idx = gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x;
+            group_max_coord[group_idx] = brightest_texel_coord;
+            group_max_lum[group_idx] = max_lum;
+        }
+    } else if (pass == 1) {
+        if (gl_WorkGroupID.xy == ivec2(0,0)) {
+            ivec2 brightest_coord = ivec2(0,0);
+            float max_lum = 0.0;
+            for (uint i = 0; i < NUM_WORK_GROUPS; ++i) {
+                float lum = group_max_lum[i];
+                if (lum > max_lum) {
+                    brightest_coord = group_max_coord[i];
+                    max_lum = lum;
+                }
+            }
+            shooter_coords = brightest_coord;
+            shooter_position = texelFetch(position, shooter_coords, 0).xyz;
+            shooter_normal = texelFetch(normal, shooter_coords, 0).xyz;
+            shooter_unshot = imageLoad(unshot, brightest_coord);
+        }
+    }
+}
