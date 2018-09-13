@@ -170,11 +170,11 @@ void game_init(struct game_context* ctx)
     /* Bundle cornell box data */
     struct cornell_box cbox_packed;
     cbox_packed.vertices     = (float*) cornell_box_vertices;
-    cbox_packed.num_vertices = sizeof(cornell_box_vertices) / sizeof(cornell_box_vertices[0]);
+    cbox_packed.num_vertices = (sizeof(cornell_box_vertices) / sizeof(cornell_box_vertices[0])) / 3;
     cbox_packed.colors       = (float*) cornell_box_colors;
-    cbox_packed.num_colors   = sizeof(cornell_box_colors) / sizeof(cornell_box_colors[0]);
+    cbox_packed.num_colors   = (sizeof(cornell_box_colors) / sizeof(cornell_box_colors[0])) / 3;
     cbox_packed.normals      = (float*) cornell_box_normals;
-    cbox_packed.num_normals  = sizeof(cornell_box_normals) / sizeof(cornell_box_normals[0]);
+    cbox_packed.num_normals  = (sizeof(cornell_box_normals) / sizeof(cornell_box_normals[0])) / 3;
     cbox_packed.indices      = (unsigned int*) cornell_box_indices;
     cbox_packed.num_indices  = sizeof(cornell_box_indices) / sizeof(cornell_box_indices[0]);
 
